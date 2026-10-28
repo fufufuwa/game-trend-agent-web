@@ -31,7 +31,7 @@ if (typeof document !== 'undefined') (() => {
       historyTitle: '你發出去的，才算數。', historySubtitle: '手動登記實際正文，讓每一次表達都可回看。',
       settingsTitle: '這是你的玩家帳號。', settingsSubtitle: '選擇舒服的語言與介面，保留自己的口吻。',
       all: '全部來源', steam: 'Steam 評論', lemmy: 'Lemmy 社群', rss: '遊戲 RSS', heybox: '小黑盒導入',
-      queue: '今日靈感', shown: '個話題', recommended: '值得打開', score: '話題潛力', sample: '演示素材',
+      queue: '今日靈感', shown: '個話題', shownOne: '個話題', recommended: '值得打開', score: '話題潛力', sample: '演示素材',
       noResults: '還沒有符合的話題', trySearch: '換個關鍵字，或看看其他來源。',
       angle: '切入點', drafts: '三種口吻，一個自己的選擇', info: '資訊', roast: '吐槽', discussion: '討論',
       pending: '待審', approved: '已批准', rejected: '已拒絕', published: '已登記發布',
@@ -50,7 +50,7 @@ if (typeof document !== 'undefined') (() => {
       rejectNote: '已略過這個版本，其他版本仍保留。',
       publish: '手動登記已發', publishTitle: '記下你實際發布的版本',
       publishHelp: '這個動作只新增本機演示記錄，不會連線或發布到 X。',
-      actualText: '實際發布正文', actualDate: '發布時間', optionalUrl: 'X 連結（選填）',
+      editorText: '草稿正文', actualText: '實際發布正文', actualDate: '發布時間', optionalUrl: 'X 連結（選填）',
       confirmPublish: '保存發布記錄', cancel: '取消', registered: '發布快照已保存在此瀏覽器。',
       approveFirst: '請先批准這個版本。', badUrl: '請輸入有效的 https://x.com/ 或 twitter.com/ 連結。',
       badDate: '請填寫有效的發布時間。', publishedNote: '這個話題已有發布快照，保留實際正文，不覆蓋歷史。',
@@ -96,7 +96,7 @@ if (typeof document !== 'undefined') (() => {
       historyTitle: 'Your words, out in the world.', historySubtitle: 'Record what you actually posted, and keep the final version.',
       settingsTitle: 'Your account. Your voice.', settingsSubtitle: 'Choose your language and look. Keep the personality.',
       all: 'All sources', steam: 'Steam reviews', lemmy: 'Lemmy community', rss: 'Gaming RSS', heybox: 'Heybox imports',
-      queue: 'Today’s inspiration', shown: 'topics', recommended: 'Worth a look', score: 'Conversation potential', sample: 'Sample content',
+      queue: 'Today’s inspiration', shown: 'topics', shownOne: 'topic', recommended: 'Worth a look', score: 'Conversation potential', sample: 'Sample content',
       noResults: 'No topics found', trySearch: 'Try another keyword or explore a different source.',
       angle: 'The angle', drafts: 'Three voices. One personal take.', info: 'Informative', roast: 'Playful', discussion: 'Discussion',
       pending: 'Needs review', approved: 'Approved', rejected: 'Skipped', published: 'Recorded as posted',
@@ -115,7 +115,7 @@ if (typeof document !== 'undefined') (() => {
       rejectNote: 'This version was skipped. Your other versions are still here.',
       publish: 'Record a manual post', publishTitle: 'Save the version you actually posted',
       publishHelp: 'This only adds a local demo record. It does not connect to or publish on X.',
-      actualText: 'Actual published text', actualDate: 'Publication time', optionalUrl: 'X link (optional)',
+      editorText: 'Draft text', actualText: 'Actual published text', actualDate: 'Publication time', optionalUrl: 'X link (optional)',
       confirmPublish: 'Save post record', cancel: 'Cancel', registered: 'Post snapshot saved in this browser.',
       approveFirst: 'Approve this version first.', badUrl: 'Enter a valid https://x.com/ or twitter.com/ link.',
       badDate: 'Enter a valid publication time.', publishedNote: 'This topic already has a post snapshot. Its actual published text is preserved.',
@@ -266,6 +266,7 @@ if (typeof document !== 'undefined') (() => {
 
   function render() {
     document.documentElement.lang = state.language === 'zh' ? 'zh-Hant' : 'en';
+    document.title = `Game Trend Agent · ${state.language === 'zh' ? '玩家選題工作台' : 'Topic desk'}`;
     document.documentElement.dataset.theme = state.theme;
     document.body.dataset.theme = state.theme;
     document.body.classList.toggle('light', state.theme === 'light');
@@ -274,6 +275,7 @@ if (typeof document !== 'undefined') (() => {
     document.querySelectorAll('[data-view]').forEach(element => {
       element.classList.toggle('active', element.dataset.view === state.view);
       element.setAttribute('aria-current', element.dataset.view === state.view ? 'page' : 'false');
+      element.setAttribute('aria-label', t(`nav.${element.dataset.view}`));
     });
     if ($('language-toggle')) { $('language-toggle').textContent = state.language === 'zh' ? 'EN' : '繁中'; $('language-toggle').setAttribute('aria-label', state.language === 'zh' ? 'Switch to English' : '切換為繁體中文'); }
     if ($('view-title')) $('view-title').textContent = t(`${state.view}Title`);
@@ -286,6 +288,7 @@ if (typeof document !== 'undefined') (() => {
     const topics = allTopics();
     topics.forEach(topic => versions(topic));
     if ($('topic-count')) $('topic-count').textContent = topics.length;
+    if ($('overview-topic-count')) $('overview-topic-count').textContent = String(topics.length).padStart(2, '0');
     if ($('review-count')) $('review-count').textContent = topics.flatMap(topic => versions(topic)).filter(draft => draft.status === 'pending').length;
     if ($('approved-count')) $('approved-count').textContent = topics.filter(topic => versions(topic).some(draft => draft.status === 'approved')).length;
     const root = $('view-content');
@@ -302,12 +305,12 @@ if (typeof document !== 'undefined') (() => {
       persist();
     }
     const selected = currentTopic();
-    return `<div class="workspace-grid page-grid"><aside class="topic-list-panel panel"><div class="section-heading list-heading"><h2>${esc(t('queue'))}</h2><span>${matches.length} ${esc(t('shown'))}</span></div><div class="topic-list">${matches.length ? matches.map(topic => `<button class="topic-card ${selected.id === topic.id ? 'selected' : ''}" data-topic="${esc(topic.id)}" aria-pressed="${selected.id === topic.id}"><span class="topic-card-top"><span class="game-avatar ${topic.color}">${esc(topic.icon)}</span><span class="topic-game">${esc(topic.game)}<small>${esc(t(topic.source))}</small></span><span class="topic-score">${topic.score || '—'}<small>${esc(t('score'))}</small></span></span><strong>${esc(loc(topic.title))}</strong><span class="topic-summary">${esc(loc(topic.angle))}</span><span class="topic-card-bottom">${tag(loc(topic.category))}<span class="topic-age">${esc(t(topic.age))}</span></span>${publication(topic) ? `<span class="topic-published">✓ ${esc(t('published'))}</span>` : ''}</button>`).join('') : `<div class="empty-state"><strong>${esc(t('noResults'))}</strong><p>${esc(t('trySearch'))}</p></div>`}</div></aside>${matches.length ? renderDetail(selected) : ''}</div>`;
+    return `<div class="workspace-grid page-grid"><aside class="topic-list-panel panel"><div class="section-heading list-heading"><h2>${esc(t('queue'))}</h2><span>${matches.length} ${esc(t(matches.length === 1 ? 'shownOne' : 'shown'))}</span></div><div class="topic-list">${matches.length ? matches.map(topic => `<button class="topic-card ${selected.id === topic.id ? 'selected' : ''}" data-topic="${esc(topic.id)}" aria-pressed="${selected.id === topic.id}"><span class="topic-card-top"><span class="game-avatar ${topic.color}">${esc(topic.icon)}</span><span class="topic-game">${esc(topic.game)}<small>${esc(t(topic.source))}</small></span><span class="topic-score">${topic.score || '—'}<small>${esc(t('score'))}</small></span></span><strong>${esc(loc(topic.title))}</strong><span class="topic-summary">${esc(loc(topic.angle))}</span><span class="topic-card-bottom">${tag(loc(topic.category))}<span class="topic-age">${esc(t(topic.age))}</span></span>${publication(topic) ? `<span class="topic-published">✓ ${esc(t('published'))}</span>` : ''}</button>`).join('') : `<div class="empty-state"><strong>${esc(t('noResults'))}</strong><p>${esc(t('trySearch'))}</p></div>`}</div></aside>${matches.length ? renderDetail(selected) : ''}</div>`;
   }
 
   function renderDetail(topic) {
     const draft = currentDraft(), list = versions(topic), body = draft.locked ? draft.buffer : savedText(draft), posted = publication(topic);
-    return `<section class="detail-panel panel" aria-label="${esc(t('reviewer'))}"><div class="detail-heading"><div class="eyebrow">${esc(topic.game)} <span>／</span> ${esc(t('sample'))}</div><h2>${esc(loc(topic.title))}</h2><p>${esc(loc(topic.angle))}</p><div class="detail-tags">${tag(loc(topic.category), 'accent')}${tag(t('manualOnly'))}${draft.locked ? tag('🔒 ' + t('protected'), 'protected') : ''}</div></div><div class="angle-card"><span class="field-label">${esc(t('shareValue'))}</span><p>${esc(loc(topic.reason))}</p></div><div class="draft-heading section-heading"><h3>${esc(t('drafts'))}</h3><span>${statusTag(draft)}</span></div><div class="draft-tabs" role="tablist" aria-label="${esc(t('drafts'))}">${['info', 'roast', 'discussion'].map(style => `<button role="tab" aria-selected="${draft.style === style}" class="draft-tab ${draft.style === style ? 'active' : ''}" data-style="${style}">${esc(t(style))}</button>`).join('')}</div><label class="version-row field-label" for="draft-version">${esc(t('version'))}<select id="draft-version">${list.map(version => `<option value="${esc(version.id)}" ${version.id === draft.id ? 'selected' : ''}>${esc(t(version.style))} · ${esc(t('revision'))} ${version.number} · ${esc(t(version.status))}${version.locked ? ' · 🔒' : ''}</option>`).join('')}</select></label>${draft.locked ? `<label class="sr-only" for="draft-editor">${esc(t('actualText'))}</label><textarea id="draft-editor" class="draft-text draft-editor" ${posted ? 'readonly' : ''}>${esc(body)}</textarea><p class="editor-note">${esc(t('editNote'))}</p><p class="editor-note">${esc(t('lockedLanguage'))}</p>` : `<div class="draft-text" id="saved-draft-text" tabindex="0">${esc(body)}</div>`}<div class="draft-meta"><span id="draft-counter" class="${weightedLength(body) > 280 ? 'over-limit' : ''}">${weightedLength(body)} / 280 ${esc(t('estimated'))}</span><span id="unsaved-note">${hasUnsaved(draft) ? esc(t('unsaved')) : ''}</span></div><p class="count-note">${esc(t('countNote'))}</p><div class="draft-actions">${!posted ? draft.locked ? button('save', t('save'), 'primary') : button('edit', t('edit'), 'primary') : ''}${button('copy', t('copy'))}${!posted ? button('approve', t('approve')) + button('reject', t('reject')) : ''}</div><div class="version-actions">${button('regenerate', t('regenerate'))}${draft.status === 'approved' && !posted ? button('publish', t('publish')) : ''}</div>${draft.locked ? `<p class="protection-note">⌁ ${esc(t('protectedNote'))}</p>` : ''}${posted ? `<p class="protection-note">✓ ${esc(t('publishedNote'))}</p>` : ''}${publishOpen && !posted ? renderPublishForm(draft) : ''}<details class="evidence-box"><summary>${esc(t('evidence'))}</summary><dl><dt>${esc(t('source'))}</dt><dd>${esc(t(topic.source))} · ${esc(t('sample'))}</dd><dt>${esc(t('attribution'))}</dt><dd>${esc(t('mockAuthor'))}</dd></dl><p>${esc(t('mockTime'))}</p><p>${esc(t('evidenceNote'))}</p><a href="${esc(draft.evidence.url)}" target="_blank" rel="noopener noreferrer">${esc(t('sourceLink'))}</a></details></section>`;
+    return `<section class="detail-panel panel" aria-label="${esc(t('reviewer'))}"><div class="detail-heading"><div class="eyebrow">${esc(topic.game)} <span>／</span> ${esc(t('sample'))}</div><h2>${esc(loc(topic.title))}</h2><p>${esc(loc(topic.angle))}</p><div class="detail-tags">${tag(loc(topic.category), 'accent')}${tag(t('manualOnly'))}${draft.locked ? tag('🔒 ' + t('protected'), 'protected') : ''}</div></div><div class="angle-card"><span class="field-label">${esc(t('shareValue'))}</span><p>${esc(loc(topic.reason))}</p></div><div class="draft-heading section-heading"><h3>${esc(t('drafts'))}</h3><span>${statusTag(draft)}</span></div><div class="draft-tabs" role="tablist" aria-label="${esc(t('drafts'))}">${['info', 'roast', 'discussion'].map(style => `<button role="tab" aria-selected="${draft.style === style}" class="draft-tab ${draft.style === style ? 'active' : ''}" data-style="${style}">${esc(t(style))}</button>`).join('')}</div><label class="version-row field-label" for="draft-version">${esc(t('version'))}<select id="draft-version">${list.map(version => `<option value="${esc(version.id)}" ${version.id === draft.id ? 'selected' : ''}>${esc(t(version.style))} · ${esc(t('revision'))} ${version.number} · ${esc(t(version.status))}${version.locked ? ' · 🔒' : ''}</option>`).join('')}</select></label>${draft.locked ? `<label class="sr-only" for="draft-editor">${esc(t('editorText'))}</label><textarea id="draft-editor" class="draft-text draft-editor" ${posted ? 'readonly' : ''}>${esc(body)}</textarea><p class="editor-note">${esc(t('editNote'))}</p><p class="editor-note">${esc(t('lockedLanguage'))}</p>` : `<div class="draft-text" id="saved-draft-text" tabindex="0">${esc(body)}</div>`}<div class="draft-meta"><span id="draft-counter" class="${weightedLength(body) > 280 ? 'over-limit' : ''}">${weightedLength(body)} / 280 ${esc(t('estimated'))}</span><span id="unsaved-note">${hasUnsaved(draft) ? esc(t('unsaved')) : ''}</span></div><p class="count-note">${esc(t('countNote'))}</p><div class="draft-actions">${!posted ? draft.locked ? button('save', t('save'), 'primary') : button('edit', t('edit'), 'primary') : ''}${button('copy', t('copy'))}${!posted ? button('approve', t('approve')) + button('reject', t('reject')) : ''}</div><div class="version-actions">${button('regenerate', t('regenerate'))}${draft.status === 'approved' && !posted ? button('publish', t('publish')) : ''}</div>${draft.locked ? `<p class="protection-note">⌁ ${esc(t('protectedNote'))}</p>` : ''}${posted ? `<p class="protection-note">✓ ${esc(t('publishedNote'))}</p>` : ''}${publishOpen && !posted ? renderPublishForm(draft) : ''}<details class="evidence-box"><summary>${esc(t('evidence'))}</summary><dl><dt>${esc(t('source'))}</dt><dd>${esc(t(topic.source))} · ${esc(t('sample'))}</dd><dt>${esc(t('attribution'))}</dt><dd>${esc(t('mockAuthor'))}</dd></dl><p>${esc(t('mockTime'))}</p><p>${esc(t('evidenceNote'))}</p><a href="${esc(draft.evidence.url)}" target="_blank" rel="noopener noreferrer">${esc(t('sourceLink'))}</a></details></section>`;
   }
 
   function renderPublishForm(draft) {
