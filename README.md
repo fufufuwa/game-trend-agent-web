@@ -10,6 +10,8 @@ A bilingual editorial workspace for curious gamers: find an angle in player comm
 
 [開啟工作台 / Open workspace](https://fufufuwa.github.io/game-trend-agent-web/)
 
+![工作台實際預覽 / Actual workspace preview](assets/preview.png)
+
 這是獨立的純前端演示。所有話題、計數及草稿都是示例，操作僅儲存在目前瀏覽器；不會連線至本機 Game Trend Agent、不會執行採集或呼叫模型，也不會向 X 發布。
 
 This is a standalone frontend demo. Topics, counters, and drafts are examples; interactions are saved only in your current browser. It does not connect to a local Game Trend Agent, collect live sources, call a model, or publish to X.
